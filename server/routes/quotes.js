@@ -1,11 +1,28 @@
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const Quote = require('../models/Quote');
 const authMiddleware = require('../middleware/auth');
 
+const quotesReadLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 60,
+  message: { message: 'Too many requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const quotesWriteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30,
+  message: { message: 'Too many requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // @route  GET /api/quotes
 // @desc   Get all quotes (public)
-router.get('/', async (req, res) => {
+router.get('/', quotesReadLimiter, async (req, res) => {
   try {
     const quotes = await Quote.find()
       .populate('createdBy', 'name')
@@ -18,7 +35,7 @@ router.get('/', async (req, res) => {
 
 // @route  POST /api/quotes
 // @desc   Create a new quote (protected)
-router.post('/', authMiddleware, async (req, res) => {
+router.post('/', quotesWriteLimiter, authMiddleware, async (req, res) => {
   const { text, author, category } = req.body;
 
   if (!text) {
